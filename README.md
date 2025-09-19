@@ -163,10 +163,10 @@ End
 crop_n_deal/
 ├── main.py                 # Main script
 ├── README.md               # This file
-└── ImageSet2/            # Test image directory
-    ├── card1.jpg
-    ├── card2.jpg
-    └── card3.jpg
+└── Testimages/            # Test image directory
+    ├── Testimage1.tif
+    ├── Testimage2.tif
+    └── Testimage.tif
 ```
 
 ---
