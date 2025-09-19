@@ -23,18 +23,14 @@ so the card is vertical and showing just the card
 Write a script that can automatically localize and undo the rotation of a playing card, leaving it
 upright and cropped.
 
-Your script must follow these restrictions and specifications:
-1. It may only use predefined functions for image I/O (e.g., Matlab's imread), display (e.g.,
-Matlab's imshow) and geometric transformations (e.g., Matlab's imrotate). Use of other
+Script must follow these restrictions and specifications:
+1. It may only use predefined functions for image I/O (e.g., Matlab/OpenCV imread), display (e.g.,
+Matlab/OpenCV imshow) and geometric transformations (e.g., Matlab/OpenCV imrotate). Use of other
 functions may be allowed after a case-by-case consideration.
 2. Except for the input filename, it may not ask for any other user input.
 3. It must display the input and output pairs as shown in the example below.
 4. It must successfully process the three test images that are provided. Processing other test
 images is highly recommended.
-
-**Upload a flowchart of your algorithm and a single source file to Blackboard before the**
-**deadline.**
-**Be sure to name files as Lastname**
 
 ---
 
