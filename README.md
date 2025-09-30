@@ -2,171 +2,141 @@
 
 ---
 
-**ECE 4367** Image Processing Project 2 \
+**ECE 4367** Image Processing Project 2  
 *Author: Turd "2 ball" Ferguson*
 
 A Python script to rotate images of playing cards to be vertical and crop the image so it is just the card.
+
+**TODO**: Fine tune the angle then crop
 
 ---
 
 ## Overview
 
-This script takes a directory containing only .jpg images as a command line argument and processes each image \
-so the card is vertical and showing just the card
+This script takes a directory containing only images as a command line argument and processes each image  
+so the card is at anyangle showing just the card.
 
-**NOTE:** Both the before and after processing image must be displayed
+**NOTE:** Both the before and after processing image will be displayed side-by-side, with orientation shown for each.
 
 ---
 
 ## The Problem
 
-Write a script that can automatically localize and undo the rotation of a playing card, leaving it
+Write a script that automatically localizes and undoes the rotation of a playing card, leaving it
 upright and cropped.
 
-Script must follow these restrictions and specifications:
-1. It may only use predefined functions for image I/O (e.g., Matlab/OpenCV imread), display (e.g.,
-Matlab/OpenCV imshow) and geometric transformations (e.g., Matlab/OpenCV imrotate). Use of other
-functions may be allowed after a case-by-case consideration.
-2. Except for the input filename, it may not ask for any other user input.
-3. It must display the input and output pairs as shown in the example below.
-4. It must successfully process the three test images that are provided. Processing other test
-images is highly recommended.
+**Restrictions and specifications:**
+1. Only use predefined functions for image I/O (`cv.imread`), display (`matplotlib`), and geometric transformations (`cv.warpAffine`).
+2. No user input except for the input filename.
+3. Display both input and output pairs as shown in the example.
+4. Must successfully process three provided images. Additional images recommended for testing.
 
 ---
 
 ## Algorithm Overview
 
-The script implements a multi-step approach to detect, rotate, and crop playing cards:
+### 1. Thresholding 
+Convert the image to grayscale, then binarize using Otsu's thresholding:
+```python
+    _, thresholded_image = cv.threshold(gray_image, 0, 255, cv.THRESH_OTSU)
+```
+This separates card content from background.
 
-### 1. **Edge Detection and Preprocessing**
-   - Convert image to grayscale
-   - Apply Gaussian blur to reduce noise
-   - Use Canny edge detection to find card boundaries
-   - Apply morphological operations to clean up edges
+### 2. Contour Detection
+Find contours in the binary image, and return the largest contour (by area):
 
-### 2. **Contour Detection**
-   - Find contours in the edge-detected image
-   - Filter contours by area to identify potential card candidates
-   - Select the largest rectangular contour as the playing card
+```python
+    contours, _ = cv.findContours(thresholded_image, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+    largest_contour = max(contours, key=cv.contourArea)
+```
 
-### 3. **Corner Detection and Perspective Correction**
-   - Identify the four corners of the card contour
-   - Order corners in a consistent manner (top-left, top-right, bottom-right, bottom-left)
-   - Calculate perspective transformation matrix
-   - Apply perspective correction to straighten the card
 
-### 4. **Rotation Detection**
-   - Analyze card orientation using corner positions
-   - Determine rotation angle needed to make card vertical
-   - Apply rotation transformation
+### 3. Calculate Orientation 
+Use PCA on the largest contour to find its orientation:
 
-### 5. **Final Cropping**
-   - Remove excess background around the card
-   - Ensure consistent output dimensions
-   - Apply final cleanup and filtering
+```python
+    data = largest_contour.reshape(-1, 2).astype(np.float32)
+    mean, eigenvectors = cv.PCACompute(data, mean=None)[:2]
+    angle = np.arctan2(eigenvectors, eigenvectors) * 180 / np.pi    
+```
 
----
+This angle is relative to the horizontal. Vertical is ±90 degrees. We normalize/rotate so the card is upright.
+
+### 4. Rotate Image
+Rotate the image such that the card appears vertical. The code for normalization and rotation:
+
+```python
+    orientation = -orientation % 180
+    angle_to_rotate = 90 - orientation
+    M = cv.getRotationMatrix2D(center, angle_to_rotate, 1.0)
+    result = cv.warpAffine(image, M, (w, h))
+```
+
+
+### 5. Visualization
+Both original and result images are shown, with histograms and the card's orientation:
+
+```python
+    show_image(image, rotated_image, orientation=orientation, final_orientation=final_orientation)
+```
+
+--
 
 ## Usage
 
 ```bash
-python crop_n_deal.py <directory_path>
+  python main.py <directory_path>
 ```
 
-### Example:
+**Example:**
 ```bash
-python crop_n_deal.py ./test_images/
+    python main.py ./Testimages/
 ```
+
 
 **Requirements:**
-- Directory must contain only .jpg images
-- Images should contain a single playing card
-- Cards can be at any angle or perspective
+- Images should contain a single playing card.
+- Cards can be at any angle or perspective.
 
 ---
 
 ## Dependencies
 
 ```python
-import cv2
-import numpy as np
-import os
-import sys
-import matplotlib.pyplot as plt
+    import cv2
+    import numpy as np
+    import os
+    import matplotlib.pyplot as plt
 ```
-
-**Installation:**
-```bash
-  pip install opencv-python numpy matplotlib 
-```
-
 ---
 
-## Algorithm Flowchart
+## Processing Pipeline
 
-```
-Start
-  ↓
-Load Image from Directory
-  ↓
-Convert to Grayscale
-  ↓
-Apply Gaussian Blur
-  ↓
-Canny Edge Detection
-  ↓
-Morphological Operations
-  ↓
-Find Contours
-  ↓
-Filter by Area → [Contour too small?] → Yes → Try Next Contour
-  ↓ No
-Approximate Contour to Rectangle
-  ↓
-[4 corners found?] → No → Try Next Contour
-  ↓ Yes
-Order Corner Points
-  ↓
-Calculate Perspective Transform
-  ↓
-Apply Perspective Correction
-  ↓
-Detect Card Orientation
-  ↓
-Calculate Rotation Angle
-  ↓
-Apply Rotation Transform
-  ↓
-Crop to Card Boundaries
-  ↓
-Display Before/After Results
-  ↓
-[More images?] → Yes → Load Next Image
-  ↓ No
-End
-```
+1. Read image as grayscale
+2. Threshold with Otsu's method
+3. Find largest contour
+4. Get orientation using PCA
+5. Rotate to vertical
+6. Show before & after images, with histograms and orientation values
 
 ---
 
 ## Testing
 
 **Expected Output:**
-- Original image displayed on the left
-- Processed (rotated and cropped) card on the right
-- Console output showing processing steps
+- Original and processed images displayed side-by-side (with orientation indicated)
+- Console output showing image filenames and orientation angles
 
 ---
 
 ## File Structure
 
-```
 crop_n_deal/
-├── main.py                 # Main script
-├── README.md               # This file
-└── Testimages/            # Test image directory
-    ├── Testimage1.tif
-    ├── Testimage2.tif
-    └── Testimage.tif
-```
+├── main.py
+├── README.md
+└── Testimages/
+    ├── Testimage1.jpg
+    ├── Testimage2.jpg
+    └── Testimage3.jpg
 
----
+
