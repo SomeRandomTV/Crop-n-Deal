@@ -4,54 +4,39 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 
-sobel_kernel_x = np.array([
-    [-1, 0, 1],
-    [-2, 0, 2],
-    [-1, 0, 1]
-])
+def threshold(image: np.ndarray, threshold_type: int=cv.THRESH_OTSU) -> np.ndarray:
+    """
+    Talking about Otsu's thresholding method here.
 
-sobel_kernel_y = np.array([
-    [-1, -2, -1],
-    [0, 0, 0],
-    [1, 2, 1]
-])
+    :param image: np.ndarray -> Input image of playing card
+    :param threshold_type: int -> Type of thresholding method to use, default is Otsu's
+    :return thresholded_image: np.ndarray -> Binary Thresholded image
+    """
 
-prewitt_kernel_x = np.array([
-    [-1, 0, 1],
-    [-1, 0, 1],
-    [-1, 0, 1]
-])
-
-prewitt_kernel_y = np.array([
-    [-1, -1, -1],
-    [0, 0, 0],
-    [1, 1, 1]
-])
-
-laplacian_kernel = np.array([
-    [0, 1, 0],
-    [1, -4, 1],
-    [0, 1, 0]
-])
-
-gaussian_kernel = np.array([
-    [1, 2, 1],
-    [2, 4, 2],
-    [1, 2, 1]
-])
-
-
-def threshold(gray_image: np.ndarray, threshold_type: int=cv.THRESH_OTSU):
-    _, thresholded_image = cv.threshold(gray_image, 0, 255, threshold_type)
+    _, thresholded_image = cv.threshold(image, 0, 255, threshold_type)
 
     return thresholded_image
 
-def find_largest_contour(thresholded_image: np.ndarray):
+def find_largest_contour(thresholded_image: np.ndarray) -> tuple:
+    """
+    Finds the largest contour in the thresholded image
+
+    :param thresholded_image: input thresholded image
+    :return largest_contour, contours: tuple -> the largest contour and all contours in the image
+    """
     contours, _ = cv.findContours(thresholded_image, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
     largest_contour = max(contours, key=cv.contourArea)
     return largest_contour, contours
 
+
+
 def draw_contour(image: np.ndarray, contour: np.ndarray):
+    """
+    Draws the contour on the normal image
+    :param image: np.ndarray -> input image
+    :param contour: np.ndarray -> contour to draw
+    :return image_copy: np.ndarray -> image with contour drawn
+    """
     if len(image.shape) == 2 or image.shape[2] == 1:
         image_copy = cv.cvtColor(image, cv.COLOR_GRAY2BGR)
     else:
@@ -59,7 +44,14 @@ def draw_contour(image: np.ndarray, contour: np.ndarray):
     cv.drawContours(image_copy, [contour], -1, (0, 255, 0), 5)
     return image_copy
 
+
+
 def calculate_orientation(largest_contour: np.ndarray):
+    """
+    Calculates the orientation(angle) of the largest contour via PCA analysis
+    :param largest_contour: np.ndarray -> largest contour in the image
+    :return: angle: float -> angle of the largest contour
+    """
     data = largest_contour.reshape(-1, 2).astype(np.float32)
     mean, eigenvectors = cv.PCACompute(data, mean=None)[:2]
     angle = np.arctan2(eigenvectors[0, 1], eigenvectors[0, 0]) * 180 / np.pi
@@ -68,8 +60,14 @@ def calculate_orientation(largest_contour: np.ndarray):
 
 
 def rotate_to_vertical(image: np.ndarray, orientation: float):
-    # Normalize angle to [-90, 90]; this ensures horizontal shapes are recognized
+    """
+    Rotates the original image to the vertical
+    :param image: np.ndarray -> input image
+    :param orientation: float -> orientation of the image
+    :return rotated_image: np.ndarray -> rotated image
+    """
 
+    # Normalize angle to [-90, 90]; this ensures horizontal shapes are recognized
     orientation = -orientation % 180
     # Compute rotation to nearest vertical (90 degrees)
     angle_to_rotate = 90 - orientation
@@ -79,7 +77,16 @@ def rotate_to_vertical(image: np.ndarray, orientation: float):
     result = cv.warpAffine(image, M, (w, h))
     return result.astype(np.uint8)
 
+
+
 def show_image(gray_image: np.ndarray, result: np.ndarray=None, **kwargs):
+    """
+    Shows the original and result image(after rotation) with histograms
+    :param gray_image:
+    :param result:
+    :param kwargs:
+    :return:
+    """
     if result is None:
         print("result is None in show_image, skipping display.")
         return
@@ -129,6 +136,13 @@ def show_image(gray_image: np.ndarray, result: np.ndarray=None, **kwargs):
     plt.tight_layout()
     plt.show()
 
+def get_mask(thresholded_rotated_image, contour):
+    mask = np.zeros(thresholded_rotated_image.shape, dtype=np.uint8)
+    cv.drawContours(mask, [contour], -1, 255, -1)
+    return mask
+
+def crop_image(image, mask):
+    return cv.bitwise_and(image, image, mask=mask)
 
 
 def main(args):
@@ -149,6 +163,10 @@ def main(args):
         rotated_image = rotate_to_vertical(image, orientation)
         largest_contour_rotated, contours = find_largest_contour(rotated_image)
         final_orientation = calculate_orientation(largest_contour_rotated)
+        thresh_rotated = threshold(rotated_image, threshold_type=cv.THRESH_BINARY)
+        mask = get_mask(thresh_rotated, largest_contour_rotated)
+        rotated_image = crop_image(rotated_image, mask)
+
         show_image(image, rotated_image, orientation=orientation, final_orientation=final_orientation)
 
 
